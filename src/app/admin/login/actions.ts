@@ -1,31 +1,15 @@
 'use server';
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
-import { adminEmails, signToken, sessionToken, SESSION_COOKIE } from '@/lib/adminAuth';
-import { sendAdminLoginEmail } from '@/lib/email';
-
-const cookieOpts = { httpOnly: true, secure: true, sameSite: 'lax' as const, path: '/', maxAge: 7 * 24 * 3600 };
-
-export async function sendLoginLink(form: FormData) {
-  const email = String(form.get('email') || '').trim().toLowerCase();
-  if (adminEmails().includes(email)) {
-    const token = await signToken({ e: email, k: 'l', exp: Date.now() + 15 * 60 * 1000 });
-    const url = `${process.env.NEXT_PUBLIC_SITE_URL}/admin/login/verify?token=${encodeURIComponent(token)}`;
-    await sendAdminLoginEmail(email, url);
-  }
-  redirect('/admin/login?sent=1');
+import {cookies} from 'next/headers';
+import {redirect} from 'next/navigation';
+import {issueToken,SESSION_COOKIE,validAdminCredentials} from '@/lib/adminAuth';
+export async function login(form:FormData){
+ const email=String(form.get('email')||'').trim().toLowerCase();
+ const password=String(form.get('password')||'');
+ if(!validAdminCredentials(email,password))redirect('/admin/login?error=1');
+ cookies().set(SESSION_COOKIE,issueToken(email),{httpOnly:true,secure:process.env.NODE_ENV==='production',sameSite:'strict',path:'/',maxAge:8*60*60});
+ redirect('/admin');
 }
-
-export async function passwordLogin(form: FormData) {
-  const email = String(form.get('email') || '').trim().toLowerCase();
-  const pw = String(form.get('password') || '');
-  const ok = adminEmails().includes(email) && !!process.env.ADMIN_PASSWORD && pw === process.env.ADMIN_PASSWORD;
-  if (!ok) redirect('/admin/login?err=1');
-  cookies().set(SESSION_COOKIE, await sessionToken(email), cookieOpts);
-  redirect('/admin');
-}
-
-export async function logout() {
-  cookies().delete(SESSION_COOKIE);
-  redirect('/admin/login');
+export async function logout(){
+ cookies().set(SESSION_COOKIE,'',{httpOnly:true,secure:process.env.NODE_ENV==='production',sameSite:'strict',path:'/',maxAge:0});
+ redirect('/admin/login');
 }
