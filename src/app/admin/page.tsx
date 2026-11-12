@@ -8,6 +8,8 @@ export const metadata = { title: 'KEY PRO | Admin', robots: { index: false, foll
 
 export default async function AdminDashboard({ searchParams }: { searchParams: { added?: string; bad?: string; dup?: string } }) {
   await requireAdmin();
+  const previewUnconfigured = process.env.VERCEL_ENV === 'preview' && (!process.env.SUPABASE_SERVICE_ROLE_KEY || !process.env.SUPABASE_URL || new URL(process.env.SUPABASE_URL).hostname.split('.')[0] === 'qonprqiftlmxofygrcbv' || !process.env.KEYPRO_PREVIEW_DB_APPROVED);
+  if (previewUnconfigured) return <main style={{maxWidth:900,margin:'40px auto',padding:28,fontFamily:'system-ui'}}><h1>KEY PRO — Admin Dashboard</h1><p>Admin login successful.</p><p>Preview database is not configured. Inventory, orders, key imports and refunds are disabled to protect production data.</p><form action={logout}><button type="submit">Sign out</button></form></main>;
   const client = db();
   const { data: products, error: productError } = await client.from('products').select('id,slug,name_en,price,currency,active').order('slug');
   if (productError) throw new Error('Unable to load products');
