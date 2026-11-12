@@ -6,7 +6,7 @@ type Product = { id:string; slug:string; name_en:string; name_th:string; price:n
 async function catalog(): Promise<{product:Product; available:number}[]> {
   const url=process.env.SUPABASE_URL;
   const key=process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error('Catalog service is not configured');
+  if (!url || !key || (process.env.VERCEL_ENV === 'preview' && (new URL(url).hostname.split('.')[0] === 'qonprqiftlmxofygrcbv' || !process.env.KEYPRO_PREVIEW_DB_APPROVED))) return [];
   const client=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
   const {data:products,error}=await client.from('products').select('id,slug,name_en,name_th,price,currency,active').order('sort');
   if(error) throw new Error('Catalog is temporarily unavailable');
