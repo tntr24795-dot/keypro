@@ -7,6 +7,7 @@ export async function GET(req: NextRequest) {
   if (!token) return NextResponse.json({error:'Authentication required'},{status:401,headers:{'Cache-Control':'no-store'}});
   const url=process.env.SUPABASE_URL, secret=process.env.SUPABASE_SERVICE_ROLE_KEY;
   if(!url||!secret) return NextResponse.json({error:'Service unavailable'},{status:503});
+  if (process.env.VERCEL_ENV === 'preview' && (new URL(url).hostname.split('.')[0] === 'qonprqiftlmxofygrcbv' || !process.env.KEYPRO_PREVIEW_DB_APPROVED)) return NextResponse.json({error:'Preview database is not configured'},{status:503,headers:{'Cache-Control':'no-store'}});
   const admin=createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false}});
   const {data:{user},error:authError}=await admin.auth.getUser(token);
   if(authError||!user) return NextResponse.json({error:'Invalid session'},{status:401,headers:{'Cache-Control':'no-store'}});
