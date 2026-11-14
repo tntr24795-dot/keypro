@@ -9,6 +9,25 @@ export const metadata = { title: 'KEY PRO | Admin', robots: { index: false, foll
 export default async function AdminDashboard({ searchParams }: { searchParams: { added?: string; bad?: string; dup?: string } }) {
   await requireAdmin();
   const previewUnconfigured = process.env.VERCEL_ENV === 'preview' && (!process.env.SUPABASE_SERVICE_ROLE_KEY || !process.env.SUPABASE_URL || new URL(process.env.SUPABASE_URL).hostname.split('.')[0] === 'qonprqiftlmxofygrcbv' || !process.env.KEYPRO_PREVIEW_DB_APPROVED);
+  // The test schema shares a Supabase project, but only this explicitly scoped RPC is permitted.
+  // Do not use db() here: it deliberately rejects all production-project access in Preview.
+  if (process.env.VERCEL_ENV === 'preview' && process.env.KEYPRO_SHARED_TEST_SCHEMA === '1') {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) return <main style={{padding:32}}><h1>KEY PRO — Test Admin</h1><p>Test connection is not configured.</p></main>;
+    const { createClient } = await import('@supabase/supabase-js');
+    const scoped = createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
+    const {data,error} = await scoped.rpc('keypro_test_dashboard');
+    if (error || !data || typeof data !== 'object') return <main style={{padding:32}}><h1>KEY PRO — Test Admin</h1><p>Test dashboard unavailable. No production data was loaded.</p></main>;
+    const result = data as {products?:Array<{id:string;name:string;price:number;available:number}>;orders?:Array<{id:string;email:string;status:string;amount:number}>;refunds?:Array<{id:string;order_id:string;status:string}>};
+    return <main style={{maxWidth:1080,margin:'32px auto',padding:28,fontFamily:'system-ui',background:'#101722',color:'#e8edf5',borderRadius:16}}>
+      <header style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><div><h1>KEY PRO — Test Admin</h1><p>Isolated test schema • Read-only dashboard • No real payments</p></div><form action={logout}><button type="submit">Sign out</button></form></header>
+      <h2>Test inventory</h2>{(result.products||[]).map(p=><article key={p.id} style={{border:'1px solid #334155',padding:16,marginBottom:12,borderRadius:10}}><strong>{p.name}</strong><p>USD {p.price} · Available: {p.available}</p></article>)}
+      <h2>Test orders</h2>{(result.orders||[]).length ? (result.orders||[]).map(o=><p key={o.id}>{o.id.slice(0,8)} · {o.email} · {o.status} · USD {o.amount}</p>) : <p>No test orders yet.</p>}
+      <h2>Test refunds</h2>{(result.refunds||[]).length ? (result.refunds||[]).map(f=><p key={f.id}>{f.order_id.slice(0,8)} · {f.status}</p>) : <p>No test refunds yet.</p>}
+      <p>Import, checkout and refund actions remain disabled until sandbox workflows are verified.</p>
+    </main>;
+  }
   if (previewUnconfigured) return <main style={{maxWidth:900,margin:'40px auto',padding:28,fontFamily:'system-ui'}}><h1>KEY PRO — Admin Dashboard</h1><p>Admin login successful.</p><p>Preview database is not configured. Inventory, orders, key imports and refunds are disabled to protect production data.</p><form action={logout}><button type="submit">Sign out</button></form></main>;
   const client = db();
   const { data: products, error: productError } = await client.from('products').select('id,slug,name_en,price,currency,active').order('slug');
